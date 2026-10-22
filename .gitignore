@@ -1,0 +1,70 @@
+# ===== C++ build =====
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.pdb
+*.ilk
+*.exp
+*.idb
+
+# ===== Generated data / results =====
+# 데이터 생성기·시뮬레이션 엔진 산출물 (필요한 샘플은 git add -f 로 추가)
+data/
+results/
+*.csv
+
+# ===== Web dashboard =====
+node_modules/
+dist/
+.vite/
+.next/
+.parcel-cache/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+
+# ===== Python (분석 스크립트 사용 시) =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ===== IDE / Editor =====
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.vs/
+*.suo
+*.user
+*.swp
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Claude Code =====
+.claude/settings.local.json
