@@ -36,12 +36,6 @@ export interface Timeline {
   maxWeight: Float64Array; // 구간 안의 최대 총 가중치
 }
 
-export interface Histogram {
-  lower: number[];
-  upper: number[]; // discrete면 lower와 같다
-  counts: number[];
-  discrete: boolean;
-}
 
 function quantile(sorted: Float64Array, q: number): number {
   if (sorted.length === 0) return 0;
@@ -141,52 +135,4 @@ export function buildTimeline(table: EventTable, binCount: number): Timeline {
     maxWeight[bin] = Math.max(maxWeight[bin], load);
   }
   return { binWidth, starts, arrivals, maxSessions, maxWeight };
-}
-
-// 지속 시간은 수 초에서 수 시간까지 퍼져 있으므로 로그 간격 구간을 쓴다.
-export function durationHistogram(durations: Float64Array, binCount = 40): Histogram {
-  const positive = durations.filter((d) => d > 0);
-  if (positive.length === 0) return { lower: [], upper: [], counts: [], discrete: false };
-  const min = positive.reduce((acc, v) => Math.min(acc, v), Infinity);
-  const max = positive.reduce((acc, v) => Math.max(acc, v), 0);
-  if (min === max) return { lower: [min], upper: [max], counts: [positive.length], discrete: false };
-
-  const logMin = Math.log(min);
-  const step = (Math.log(max) - logMin) / binCount;
-  const counts = new Array<number>(binCount).fill(0);
-  for (const d of positive) counts[Math.min(binCount - 1, Math.floor((Math.log(d) - logMin) / step))]++;
-  const edge = (i: number) => Math.exp(logMin + step * i);
-  return {
-    lower: counts.map((_, i) => edge(i)),
-    upper: counts.map((_, i) => (i === binCount - 1 ? max : edge(i + 1))),
-    counts,
-    discrete: false,
-  };
-}
-
-// 서로 다른 값이 적으면 값별 개수, 많으면 정수 폭 구간으로 센다.
-export function weightHistogram(weights: Float64Array, maxDiscrete = 40, binCount = 30): Histogram {
-  const tally = new Map<number, number>();
-  for (const w of weights) tally.set(w, (tally.get(w) ?? 0) + 1);
-  if (tally.size <= maxDiscrete) {
-    const values = [...tally.keys()].sort((a, b) => a - b);
-    return { lower: values, upper: values, counts: values.map((v) => tally.get(v)!), discrete: true };
-  }
-
-  let min = Infinity;
-  let max = -Infinity;
-  for (const value of tally.keys()) {
-    min = Math.min(min, value);
-    max = Math.max(max, value);
-  }
-  const width = Math.ceil((max - min + 1) / binCount);
-  const bins = Math.ceil((max - min + 1) / width);
-  const counts = new Array<number>(bins).fill(0);
-  for (const [value, count] of tally) counts[Math.floor((value - min) / width)] += count;
-  return {
-    lower: counts.map((_, i) => min + i * width),
-    upper: counts.map((_, i) => Math.min(max, min + (i + 1) * width - 1)),
-    counts,
-    discrete: false,
-  };
 }

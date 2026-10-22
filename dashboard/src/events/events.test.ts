@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildTimeline, durationHistogram, summarizeEvents, weightHistogram } from './analyze';
+import { logHistogram, valueHistogram } from '../histogram';
+import { buildTimeline, summarizeEvents } from './analyze';
 import { CsvFormatError, parseEventsCsv, sortByTimestamp } from './parse';
 import { validateEvents } from './validate';
 
@@ -116,14 +117,14 @@ describe('buildTimeline', () => {
 describe('histograms', () => {
   it('bins durations on a log scale', () => {
     // 경계: 10, 100, 1000, 10000 (최댓값은 마지막 구간에 포함)
-    const h = durationHistogram(Float64Array.from([10, 50, 500, 5000, 10000]), 3);
+    const h = logHistogram(Float64Array.from([10, 50, 500, 5000, 10000]), 3);
     expect(h.counts).toEqual([2, 1, 2]);
     expect(h.lower[0]).toBeCloseTo(10);
     expect(h.upper[2]).toBe(10000);
   });
 
   it('lists weights individually when there are few values', () => {
-    const h = weightHistogram(Float64Array.from([1, 1, 4, 2, 4, 4]));
+    const h = valueHistogram(Float64Array.from([1, 1, 4, 2, 4, 4]));
     expect(h.discrete).toBe(true);
     expect(h.lower).toEqual([1, 2, 4]);
     expect(h.counts).toEqual([2, 1, 3]);
@@ -131,7 +132,7 @@ describe('histograms', () => {
 
   it('groups weights into ranges when there are many values', () => {
     const weights = Float64Array.from({ length: 100 }, (_, i) => i + 1);
-    const h = weightHistogram(weights, 40, 10);
+    const h = valueHistogram(weights, 40, 10);
     expect(h.discrete).toBe(false);
     expect(h.counts).toHaveLength(10);
     expect(h.counts.every((c) => c === 10)).toBe(true);

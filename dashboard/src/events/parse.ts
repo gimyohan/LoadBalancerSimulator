@@ -1,6 +1,10 @@
 // 데이터 생성기의 이벤트 CSV(session_id,type,timestamp,weight)를 열 단위 배열로 읽는다.
 // 수십만 행도 다루도록 객체 배열 대신 typed array를 쓴다. 시각 단위는 ms다.
 
+import { CsvFormatError } from '../csv';
+
+export { CsvFormatError };
+
 export interface EventTable {
   length: number;
   sessionId: Float64Array;
@@ -10,8 +14,6 @@ export interface EventTable {
 }
 
 export const EVENT_CSV_HEADER = 'session_id,type,timestamp,weight';
-
-export class CsvFormatError extends Error {}
 
 function parseInteger(text: string, line: number, field: string): number {
   const value = Number(text);

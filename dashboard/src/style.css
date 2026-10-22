@@ -9,6 +9,18 @@
   --text-muted: #75746f;
   --series-1: #2a78d6;
   --series-1-wash: rgb(42 120 214 / 0.1);
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --seq-1: #cde2fb;
+  --seq-2: #86b6ef;
+  --seq-3: #3987e5;
+  --seq-4: #1c5cab;
+  --seq-5: #0d366b;
   --accent: #2a78d6;
   --status-good: #0ca30c;
   --status-critical: #d03b3b;
@@ -27,6 +39,18 @@
     --text-muted: #96958d;
     --series-1: #3987e5;
     --series-1-wash: rgb(57 135 229 / 0.12);
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --seq-1: #172a42;
+    --seq-2: #1c5cab;
+    --seq-3: #2a78d6;
+    --seq-4: #6da7ec;
+    --seq-5: #cde2fb;
     --accent: #3987e5;
   }
 }
@@ -42,6 +66,18 @@
   --text-muted: #96958d;
   --series-1: #3987e5;
   --series-1-wash: rgb(57 135 229 / 0.12);
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --seq-1: #172a42;
+  --seq-2: #1c5cab;
+  --seq-3: #2a78d6;
+  --seq-4: #6da7ec;
+  --seq-5: #cde2fb;
   --accent: #3987e5;
 }
 
@@ -72,15 +108,41 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.brand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  align-items: center;
+}
+
 .brand h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
-.brand span {
-  color: var(--text-muted);
-  font-size: 12px;
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs a {
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.tabs a:hover {
+  background: var(--page);
+  color: var(--text-primary);
+}
+
+.tabs a.active {
+  background: var(--series-1-wash);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .controls {
@@ -304,6 +366,146 @@ main {
 
 .drop-overlay[hidden] {
   display: none;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.section-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.section-head code,
+.table-panel code {
+  font-size: 12px;
+}
+
+.field.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.chip[aria-pressed='false'] {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.chip[aria-pressed='false'] .swatch {
+  opacity: 0.25;
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.chip .swatch {
+  margin-right: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+table.compare th,
+table.compare td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--grid);
+  text-align: right;
+  white-space: nowrap;
+}
+
+table.compare thead th {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+table.compare th[scope='row'],
+table.compare thead th:first-child {
+  text-align: left;
+}
+
+table.compare th[scope='row'] {
+  font-weight: 500;
+}
+
+table.compare tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+table.compare tr[data-detail-row] {
+  cursor: pointer;
+}
+
+table.compare tr[data-detail-row]:hover,
+table.compare tr.current {
+  background: var(--series-1-wash);
+}
+
+table.compare td.best {
+  font-weight: 700;
+}
+
+.table-note {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.table-panel header {
+  margin-bottom: 8px;
+}
+
+.columns-3 {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.chart-short {
+  height: 220px;
 }
 
 @media (max-width: 640px) {

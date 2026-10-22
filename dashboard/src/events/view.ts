@@ -1,19 +1,9 @@
-import {
-  barSeries,
-  baseOption,
-  categoryAxis,
-  mountChart,
-  readChartTheme,
-  stepSeries,
-  tooltip,
-  valueAxis,
-  type ChartOption,
-  type ChartTheme,
-  type MountedChart,
-} from '../charts';
+import { baseOption, readChartTheme, stepSeries, tooltip, valueAxis, type ChartOption, type ChartTheme } from '../charts';
 import { escapeHtml } from '../dom';
 import { formatDuration, formatInt, formatNumber, timeFormatter } from '../format';
-import { buildTimeline, durationHistogram, weightHistogram, type Histogram, type Timeline } from './analyze';
+import { logHistogram, valueHistogram } from '../histogram';
+import { ChartSet, histogramOption, panel, tile, timeZoom } from '../widgets';
+import { buildTimeline, type Timeline } from './analyze';
 import type { EventDataset } from './dataset';
 
 const TIMELINE_GROUP = 'event-timeline';
@@ -25,7 +15,7 @@ interface TooltipParam {
 
 // 이벤트 데이터셋 한 개를 요약 타일, 시간축 차트, 분포 차트로 보여준다.
 export class EventDatasetView {
-  private charts: MountedChart[] = [];
+  private readonly charts = new ChartSet();
   private dataset?: EventDataset;
   private bins = 300;
 
@@ -46,8 +36,7 @@ export class EventDatasetView {
   }
 
   dispose() {
-    for (const c of this.charts) c.dispose();
-    this.charts = [];
+    this.charts.dispose();
   }
 
   private render() {
@@ -81,22 +70,17 @@ export class EventDatasetView {
     `;
 
     const theme = readChartTheme();
+    const mount = (key: string, group: string | undefined, option: ChartOption) =>
+      this.charts.mount(this.root, key, group, option);
     const timeCharts = ['arrivals', 'sessions', ...(summary.allWeightsOne ? [] : ['weight'])];
     // 소수의 긴 세션 때문에 전체 범위가 길게 늘어지면 처음에는 이벤트 대부분이 있는 범위만 보여준다.
     const zoomEnd = summary.bulkEnd < summary.endTime * 0.8 ? summary.bulkEnd : summary.endTime;
     for (const key of timeCharts) {
       const isLast = key === timeCharts[timeCharts.length - 1];
-      this.mount(key, TIMELINE_GROUP, timeChartOption(theme, timeline, summary.endTime, zoomEnd, key, isLast));
+      mount(key, TIMELINE_GROUP, timeChartOption(theme, timeline, summary.endTime, zoomEnd, key, isLast));
     }
-    this.mount('durations', undefined, histogramOption(theme, durationHistogram(summary.durations), formatDuration));
-    this.mount('weights', undefined, histogramOption(theme, weightHistogram(summary.weights), formatInt));
-  }
-
-  private mount(key: string, group: string | undefined, option: ChartOption) {
-    const element = this.root.querySelector<HTMLElement>(`[data-chart="${key}"]`)!;
-    const mounted = mountChart(element, group);
-    mounted.chart.setOption(option);
-    this.charts.push(mounted);
+    mount('durations', undefined, histogramOption(theme, logHistogram(summary.durations), formatDuration));
+    mount('weights', undefined, histogramOption(theme, valueHistogram(summary.weights), formatInt));
   }
 }
 
@@ -112,16 +96,6 @@ function validationBanner({ validation }: EventDataset): string {
         제약 조건 위반 ${formatInt(validation.errorCount)}건. 위반한 행은 집계에서 건너뛴다.</p>
       <ul>${items}${more > 0 ? `<li>외 ${formatInt(more)}건</li>` : ''}</ul>
     </div>`;
-}
-
-function tile(label: string, value: string, detail: string): string {
-  return `<div class="tile"><div class="tile-label">${label}</div>
-    <div class="tile-value">${value}</div><div class="tile-detail">${detail}</div></div>`;
-}
-
-function panel(key: string, title: string, subtitle: string): string {
-  return `<section class="panel"><header><h2>${title}</h2><p>${subtitle}</p></header>
-    <div class="chart" data-chart="${key}"></div></section>`;
 }
 
 const TIME_SERIES = {
@@ -169,48 +143,7 @@ function timeChartOption(
         return `<div class="tip-muted">${range}</div><b>${label} ${formatInt(value)}</b>${rate}`;
       },
     }),
-    dataZoom: [
-      { type: 'inside', filterMode: 'none', startValue: 0, endValue: zoomEnd },
-      ...(withSlider
-        ? [{
-            type: 'slider',
-            filterMode: 'none',
-            startValue: 0,
-            endValue: zoomEnd,
-            height: 20,
-            bottom: 8,
-            borderColor: theme.grid,
-            fillerColor: theme.seriesWash,
-            dataBackground: { lineStyle: { color: theme.muted }, areaStyle: { color: theme.grid } },
-            textStyle: { color: theme.muted },
-            labelFormatter: formatTime,
-          }]
-        : []),
-    ],
+    dataZoom: timeZoom(theme, formatTime, withSlider, { startValue: 0, endValue: zoomEnd }),
     series: [stepSeries(theme, data)],
-  };
-}
-
-function histogramOption(theme: ChartTheme, histogram: Histogram, format: (v: number) => string) {
-  const total = histogram.counts.reduce((acc, c) => acc + c, 0);
-  const rangeLabel = (i: number) =>
-    histogram.discrete || histogram.lower[i] === histogram.upper[i]
-      ? format(histogram.lower[i])
-      : `${format(histogram.lower[i])} – ${format(histogram.upper[i])}`;
-  return {
-    ...baseOption(theme),
-    xAxis: categoryAxis(theme, histogram.lower.map((v) => format(v))),
-    yAxis: valueAxis(theme),
-    tooltip: tooltip(theme, {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow', shadowStyle: { color: theme.seriesWash } },
-      formatter: (params: { dataIndex: number }[]) => {
-        const i = params[0].dataIndex;
-        const count = histogram.counts[i];
-        const share = total ? formatNumber((count / total) * 100) : '0';
-        return `<div class="tip-muted">${rangeLabel(i)}</div><b>${formatInt(count)}개</b> (${share}%)`;
-      },
-    }),
-    series: [barSeries(theme, histogram.counts)],
   };
 }

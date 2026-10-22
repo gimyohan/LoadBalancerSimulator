@@ -11,7 +11,7 @@ lb_generator ──(이벤트 CSV)──▶ lb_simulator ──(결과 CSV)─�
 | --- | --- | --- |
 | 데이터 생성기 | `generator/` | [generator/README.md](generator/README.md) |
 | 시뮬레이션 엔진 | `engine/` | [engine/README.md](engine/README.md) |
-| 결과 분석 및 시각화 | `dashboard/` | [dashboard/README.md](dashboard/README.md) (현재 이벤트 데이터셋만) |
+| 결과 분석 및 시각화 | `dashboard/` | [dashboard/README.md](dashboard/README.md) |
 | 공통 모듈 | `common/` | 이벤트 CSV, 제약 검증, 설정(`key=value`), 난수, 레지스트리 |
 
 ## 빠른 시작

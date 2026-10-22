@@ -1,9 +1,27 @@
-import { BarChart, LineChart } from 'echarts/charts';
-import { DataZoomComponent, GridComponent, TooltipComponent } from 'echarts/components';
+import { BarChart, HeatmapChart, LineChart } from 'echarts/charts';
+import {
+  DataZoomComponent,
+  GridComponent,
+  LegendComponent,
+  MarkLineComponent,
+  TooltipComponent,
+  VisualMapComponent,
+} from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 
-echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
+echarts.use([
+  BarChart,
+  HeatmapChart,
+  LineChart,
+  GridComponent,
+  LegendComponent,
+  MarkLineComponent,
+  TooltipComponent,
+  VisualMapComponent,
+  DataZoomComponent,
+  CanvasRenderer,
+]);
 
 export { echarts };
 export type Chart = echarts.ECharts;
@@ -18,6 +36,8 @@ export interface ChartTheme {
   grid: string;
   series: string;
   seriesWash: string;
+  categorical: string[]; // 고정 순서 8색. 개체(전략 등)마다 슬롯 하나를 정해 쓴다
+  sequential: string[]; // 크기를 나타내는 단색 램프 (작음 → 큼)
 }
 
 export function readChartTheme(): ChartTheme {
@@ -31,6 +51,8 @@ export function readChartTheme(): ChartTheme {
     grid: v('--grid'),
     series: v('--series-1'),
     seriesWash: v('--series-1-wash'),
+    categorical: Array.from({ length: 8 }, (_, i) => v(`--series-${i + 1}`)),
+    sequential: Array.from({ length: 5 }, (_, i) => v(`--seq-${i + 1}`)),
   };
 }
 
