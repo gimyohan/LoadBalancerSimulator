@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로드 밸런싱 대시보드</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <h1>이벤트 데이터셋</h1>
+        <span>로드 밸런싱 시뮬레이션</span>
+      </div>
+      <div class="controls">
+        <label class="field">
+          <span>데이터셋</span>
+          <select id="dataset-select"></select>
+        </label>
+        <label class="field">
+          <span>시간 구간</span>
+          <select id="bins-select">
+            <option value="100">100개</option>
+            <option value="300" selected>300개</option>
+            <option value="1000">1000개</option>
+          </select>
+        </label>
+        <button id="refresh" type="button" title="data/ 디렉터리를 다시 읽는다">새로고침</button>
+        <button id="open-file" type="button" class="primary">CSV 열기</button>
+        <input id="file-input" type="file" accept=".csv,text/csv" multiple hidden />
+      </div>
+    </header>
+    <p id="load-status" class="load-status" aria-live="polite"></p>
+    <main id="content"></main>
+    <div id="drop-overlay" class="drop-overlay" hidden>CSV 파일을 놓으면 불러온다</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
