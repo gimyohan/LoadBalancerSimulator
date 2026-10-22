@@ -24,8 +24,8 @@ compile_commands.json
 
 # ===== Generated data / results =====
 # 데이터 생성기·시뮬레이션 엔진 산출물 (필요한 샘플은 git add -f 로 추가)
-data/
-results/
+/data/
+/results/
 *.csv
 
 # ===== Web dashboard =====
