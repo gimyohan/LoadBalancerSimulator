@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-#include "random.hpp"
+#include "lb/random.hpp"
 
 namespace lb::gen {
 

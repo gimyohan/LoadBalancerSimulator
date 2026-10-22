@@ -1,9 +1,9 @@
-#include "random.hpp"
+#include "lb/random.hpp"
 
 #include <cmath>
 #include <numbers>
 
-namespace lb::gen {
+namespace lb {
 
 double uniform01(Rng& rng) {
     // 상위 53비트로 double 가수부를 채운다.
@@ -21,4 +21,4 @@ double standardNormal(Rng& rng) {
 
 double exponential(Rng& rng, double mean) { return -mean * std::log(1.0 - uniform01(rng)); }
 
-}  // namespace lb::gen
+}  // namespace lb

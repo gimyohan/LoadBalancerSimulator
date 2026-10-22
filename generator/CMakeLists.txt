@@ -5,8 +5,6 @@ file(GLOB LB_GENERATOR_SCENARIOS CONFIGURE_DEPENDS src/scenarios/*.cpp)
 add_library(lb_generator_core STATIC
     src/distribution.cpp
     src/event_builder.cpp
-    src/params.cpp
-    src/random.cpp
     src/scenario.cpp
     src/scenario_registry.cpp
     ${LB_GENERATOR_SCENARIOS}

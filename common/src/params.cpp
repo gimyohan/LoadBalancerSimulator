@@ -1,11 +1,11 @@
-#include "params.hpp"
+#include "lb/params.hpp"
 
 #include <charconv>
 #include <cmath>
 #include <fstream>
 #include <stdexcept>
 
-namespace lb::gen {
+namespace lb {
 
 void Params::set(const std::string& key, const std::string& value) { values_[key] = value; }
 
@@ -47,6 +47,33 @@ std::vector<std::string> Params::unusedKeys() const {
         if (!used_.count(key)) unused.push_back(key);
     }
     return unused;
+}
+
+CommandLine parseCommandLine(int argc, const char* const* argv) {
+    CommandLine command;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view arg = argv[i];
+        if (arg == "-h" || arg == "--help") {
+            command.help = true;
+        } else if (arg == "--list") {
+            command.list = true;
+        } else if (arg == "--config") {
+            if (++i >= argc) throw std::invalid_argument("--config 뒤에 파일 경로가 필요하다");
+            loadParamsFile(argv[i], command.params);
+        } else {
+            auto [key, value] = parseAssignment(arg);
+            command.params.set(key, value);
+        }
+    }
+    return command;
+}
+
+void rejectUnusedKeys(const Params& params, std::string_view owner) {
+    const auto unused = params.unusedKeys();
+    if (unused.empty()) return;
+    std::string keys;
+    for (const std::string& key : unused) keys += ' ' + key;
+    throw std::invalid_argument(std::string(owner) + "에서 쓰지 않는 파라미터:" + keys);
 }
 
 std::pair<std::string, std::string> parseAssignment(std::string_view text) {
@@ -113,4 +140,4 @@ std::int64_t parseInt(std::string_view text, std::string_view context) {
     return value;
 }
 
-}  // namespace lb::gen
+}  // namespace lb

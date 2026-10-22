@@ -1,20 +1,6 @@
 #include "scenario_registry.hpp"
 
-#include <stdexcept>
-
 namespace lb::gen {
-
-void ScenarioRegistry::add(ScenarioInfo info) {
-    if (find(info.name)) throw std::invalid_argument("시나리오 이름이 중복된다: " + info.name);
-    infos_.push_back(std::move(info));
-}
-
-const ScenarioInfo* ScenarioRegistry::find(std::string_view name) const {
-    for (const ScenarioInfo& info : infos_) {
-        if (info.name == name) return &info;
-    }
-    return nullptr;
-}
 
 std::vector<ParamInfo> sessionProfileParams(std::optional<std::string> default_duration) {
     std::vector<ParamInfo> params;

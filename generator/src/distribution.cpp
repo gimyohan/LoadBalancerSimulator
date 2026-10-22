@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "params.hpp"
+#include "lb/params.hpp"
 
 namespace lb::gen {
 

@@ -8,8 +8,8 @@
 
 #include "distribution.hpp"
 #include "lb/event.hpp"
-#include "params.hpp"
-#include "random.hpp"
+#include "lb/params.hpp"
+#include "lb/random.hpp"
 
 namespace lb::gen {
 

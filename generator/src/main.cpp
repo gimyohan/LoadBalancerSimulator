@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cstdint>
-#include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
@@ -9,17 +8,12 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif
-
 #include "event_builder.hpp"
+#include "lb/console.hpp"
 #include "lb/event.hpp"
-#include "params.hpp"
+#include "lb/io.hpp"
+#include "lb/params.hpp"
+#include "lb/registry.hpp"
 #include "scenarios/builtin.hpp"
 
 namespace {
@@ -35,30 +29,13 @@ const std::vector<ParamInfo> kCommonParams = {
     {"output", "data/<scenario>.csv", "출력 CSV 경로 ('-'이면 표준 출력)"},
 };
 
-void printParams(std::ostream& out, const std::vector<ParamInfo>& params) {
-    std::size_t width = 0;
-    for (const ParamInfo& p : params) width = std::max(width, p.name.size());
-    for (const ParamInfo& p : params) {
-        out << std::format("  {:<{}}  {}  [기본값: {}]\n", p.name, width, p.description,
-                           p.default_value.empty() ? "없음" : p.default_value);
-    }
-}
-
 void printUsage(std::ostream& out) {
     out << "사용법: lb_generator [--config FILE] key=value ...\n"
            "        lb_generator --list\n\n"
            "인자는 앞에서부터 적용되며, 같은 키는 나중 값이 이긴다.\n\n"
            "공통 파라미터:\n";
-    printParams(out, kCommonParams);
+    printParamTable(out, kCommonParams);
     out << '\n' << distributionHelp();
-}
-
-void printScenarios(std::ostream& out, const ScenarioRegistry& registry) {
-    for (const ScenarioInfo& info : registry.all()) {
-        out << info.name << " - " << info.description << '\n';
-        printParams(out, info.params);
-        out << '\n';
-    }
 }
 
 void printSummary(std::ostream& out, const std::string& scenario, const Params& params,
@@ -93,28 +70,16 @@ void printSummary(std::ostream& out, const std::string& scenario, const Params& 
 }
 
 int run(int argc, char** argv) {
-    Params params;
-    bool list = false;
-    for (int i = 1; i < argc; ++i) {
-        const std::string arg = argv[i];
-        if (arg == "-h" || arg == "--help") {
-            printUsage(std::cout);
-            return 0;
-        }
-        if (arg == "--list") {
-            list = true;
-        } else if (arg == "--config") {
-            if (++i >= argc) throw std::invalid_argument("--config 뒤에 파일 경로가 필요하다");
-            loadParamsFile(argv[i], params);
-        } else {
-            auto [key, value] = parseAssignment(arg);
-            params.set(key, value);
-        }
+    CommandLine command = parseCommandLine(argc, argv);
+    Params& params = command.params;
+    if (command.help) {
+        printUsage(std::cout);
+        return 0;
     }
 
     const ScenarioRegistry registry = makeBuiltinRegistry();
-    if (list) {
-        printScenarios(std::cout, registry);
+    if (command.list) {
+        printRegistry(std::cout, registry);
         return 0;
     }
 
@@ -133,11 +98,7 @@ int run(int argc, char** argv) {
     const std::string output = params.getString("output", "data/" + name + ".csv");
 
     auto scenario = info->create(params);
-    if (const auto unused = params.unusedKeys(); !unused.empty()) {
-        std::string keys;
-        for (const std::string& key : unused) keys += ' ' + key;
-        throw std::invalid_argument("시나리오 '" + name + "'가 쓰지 않는 파라미터:" + keys);
-    }
+    rejectUnusedKeys(params, "시나리오 '" + name + "'");
 
     Rng rng(seed);
     const std::vector<Event> events = buildEvents(scenario->generate(request, rng));
@@ -148,12 +109,9 @@ int run(int argc, char** argv) {
     if (output == "-") {
         writeEventsCsv(std::cout, events);
     } else {
-        const std::filesystem::path path(output);
-        if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path());
-        std::ofstream out(path, std::ios::binary);
-        if (!out) throw std::runtime_error("출력 파일을 열 수 없다: " + output);
+        std::ofstream out = openOutputFile(output);
         writeEventsCsv(out, events);
-        if (!out.flush()) throw std::runtime_error("출력 파일 쓰기 실패: " + output);
+        closeOutputFile(out, output);
         std::cerr << "출력: " << output << '\n';
     }
     printSummary(std::cerr, name, params, events);
@@ -163,9 +121,7 @@ int run(int argc, char** argv) {
 }  // namespace
 
 int main(int argc, char** argv) {
-#ifdef _WIN32
-    SetConsoleOutputCP(CP_UTF8);
-#endif
+    lb::enableUtf8Console();
     try {
         return run(argc, argv);
     } catch (const std::exception& e) {

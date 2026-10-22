@@ -8,17 +8,10 @@
 
 #include "distribution.hpp"
 #include "event_builder.hpp"
+#include "lb/console.hpp"
 #include "lb/event.hpp"
-#include "params.hpp"
+#include "lb/params.hpp"
 #include "scenarios/builtin.hpp"
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif
 
 namespace {
 
@@ -176,9 +169,7 @@ void distributionsSample() {
 }  // namespace
 
 int main() {
-#ifdef _WIN32
-    SetConsoleOutputCP(CP_UTF8);
-#endif
+    lb::enableUtf8Console();
     const std::pair<const char*, std::function<void()>> tests[] = {
         {"everyScenarioSatisfiesConstraints", everyScenarioSatisfiesConstraints},
         {"sameSeedIsReproducible", sameSeedIsReproducible},

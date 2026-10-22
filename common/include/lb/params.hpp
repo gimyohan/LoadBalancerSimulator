@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace lb::gen {
+namespace lb {
 
 // key=value 형태의 생성 설정. 조회된 키를 기록해 두었다가 오타 등으로
 // 아무도 읽지 않은 키를 unusedKeys()로 알려준다.
@@ -34,6 +34,18 @@ private:
     mutable std::set<std::string> used_;
 };
 
+// 명령행: --help/-h, --list, --config FILE, key=value. 인자는 앞에서부터 적용되고
+// 같은 키는 나중 값이 이긴다.
+struct CommandLine {
+    Params params;
+    bool help = false;
+    bool list = false;
+};
+CommandLine parseCommandLine(int argc, const char* const* argv);
+
+// 아무도 읽지 않은 키가 있으면 오타로 보고 std::invalid_argument를 던진다.
+void rejectUnusedKeys(const Params& params, std::string_view owner);
+
 // "key=value"를 나눈다. 형식이 틀리면 std::invalid_argument.
 std::pair<std::string, std::string> parseAssignment(std::string_view text);
 // 한 줄에 key=value 하나, '#' 뒤는 주석.
@@ -44,4 +56,4 @@ std::vector<std::string_view> split(std::string_view text, char sep);
 double parseDouble(std::string_view text, std::string_view context);
 std::int64_t parseInt(std::string_view text, std::string_view context);
 
-}  // namespace lb::gen
+}  // namespace lb
