@@ -7,6 +7,8 @@ export type ResultFile = 'summary.csv' | 'servers.csv' | 'timeline.csv' | 'assig
 
 export interface RunSummary {
   strategy: string;
+  description: string; // 전략 설명. 설명을 기록하기 전의 엔진 결과면 빈 문자열
+  strategyParams: Map<string, string>; // 전략 파라미터와 적용된 값
   eventsFile: string;
   servers: string;
   metrics: Map<string, number>; // 숫자 지표
@@ -19,11 +21,21 @@ export function metric(summary: RunSummary, name: string): number {
 
 export function parseSummary(text: string): RunSummary {
   const table = new CsvTable(text, ['metric', 'value'], 'summary.csv');
-  const summary: RunSummary = { strategy: '', eventsFile: '', servers: '', metrics: new Map(), params: new Map() };
+  const summary: RunSummary = {
+    strategy: '',
+    description: '',
+    strategyParams: new Map(),
+    eventsFile: '',
+    servers: '',
+    metrics: new Map(),
+    params: new Map(),
+  };
   for (let i = 0; i < table.rows.length; i++) {
     const key = table.text(i, 'metric');
     const value = table.text(i, 'value');
     if (key === 'strategy') summary.strategy = value;
+    else if (key === 'strategy_description') summary.description = value;
+    else if (key.startsWith('strategy_param.')) summary.strategyParams.set(key.slice('strategy_param.'.length), value);
     else if (key === 'events_file') summary.eventsFile = value;
     else if (key === 'servers') summary.servers = value;
     else if (key.startsWith('param.')) summary.params.set(key.slice('param.'.length), value);

@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "simulation.hpp"
 
@@ -11,6 +13,9 @@ namespace lb::sim {
 // 결과와 함께 기록할 실행 설정.
 struct RunInfo {
     std::string strategy;
+    std::string strategy_description;  // StrategyInfo::description
+    // 전략이 받는 파라미터와 이번 실행에 적용된 값 (지정하지 않았으면 기본값)
+    std::vector<std::pair<std::string, std::string>> strategy_params;
     std::string events_file;
     std::string servers_spec;
     std::map<std::string, std::string> params;  // 명령행에서 받은 전체 파라미터

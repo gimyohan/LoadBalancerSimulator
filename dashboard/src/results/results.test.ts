@@ -8,6 +8,8 @@ import { groupRuns, runsFromFiles } from './source';
 // lb_simulator 출력 형식을 줄인 예
 const SUMMARY = `metric,value
 strategy,least_load
+strategy_description,"최소 이용률: 사용량/크기 비율이 가장 낮은 서버를 고른다"
+strategy_param.seed,1
 events_file,data/peak.csv
 servers,"4x100,2x250"
 connects,10
@@ -50,6 +52,15 @@ describe('parseSummary', () => {
     expect(metric(s, 'utilization_variance_mean')).toBe(1.5e-5);
     expect(metric(s, 'missing')).toBeNaN();
     expect(s.params.get('strategy')).toBe('round_robin,least_load');
+    expect(s.description).toBe('최소 이용률: 사용량/크기 비율이 가장 낮은 서버를 고른다');
+    expect(s.strategyParams.get('seed')).toBe('1');
+    expect(s.params.get('seed')).toBe('3'); // strategy_param.*과 param.*은 따로 모은다
+  });
+
+  it('accepts results written before descriptions existed', () => {
+    const s = parseSummary('metric,value\nstrategy,random\nconnects,1\n');
+    expect(s.description).toBe('');
+    expect(s.strategyParams.size).toBe(0);
   });
 
   it('requires the strategy row', () => {

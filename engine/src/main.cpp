@@ -121,7 +121,12 @@ int run(int argc, char** argv) {
     printHeader(std::cerr);
     for (auto& [name, strategy] : strategies) {
         const SimulationResult result = runSimulation(events, capacities, *strategy, options);
-        writeResults(output / name, RunInfo{name, events_file, servers_spec, params.values()}, result);
+        const StrategyInfo& info = *registry.find(name);
+        RunInfo run{name, info.description, {}, events_file, servers_spec, params.values()};
+        for (const ParamInfo& p : info.params) {
+            run.strategy_params.emplace_back(p.name, params.has(p.name) ? params.values().at(p.name) : p.default_value);
+        }
+        writeResults(output / name, run, result);
         printRow(std::cerr, name, result);
     }
     std::cerr << "출력: " << output.string() << '\n';

@@ -25,6 +25,8 @@ void writeSummary(std::ostream& out, const RunInfo& info, const SimulationResult
     };
     out << "metric,value\n";
     row("strategy", info.strategy);
+    row("strategy_description", info.strategy_description);
+    for (const auto& [key, value] : info.strategy_params) row("strategy_param." + key, value);
     row("events_file", info.events_file);
     row("servers", info.servers_spec);
     row("server_count", r.servers.size());

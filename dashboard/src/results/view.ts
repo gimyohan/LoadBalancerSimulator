@@ -10,6 +10,7 @@ import {
 import { escapeHtml } from '../dom';
 import { formatInt, formatNumber, timeFormatter } from '../format';
 import { valueHistogram } from '../histogram';
+import { HoverTip } from '../hover-tip';
 import { errorBanner } from '../page';
 import { ChartSet, histogramOption, panel, tile, timeZoom } from '../widgets';
 import {
@@ -89,6 +90,7 @@ const COLUMNS: Column[] = [
 export class ResultsView {
   private readonly charts = new ChartSet();
   private model?: ResultsModel;
+  private tip?: HoverTip;
 
   constructor(
     private readonly root: HTMLElement,
@@ -98,6 +100,8 @@ export class ResultsView {
   render(model: ResultsModel) {
     this.model = model;
     this.charts.dispose();
+    this.tip?.dispose(); // 다시 그리면 칩이 바뀌므로 열려 있던 설명도 닫는다
+    this.tip = new HoverTip();
     const theme = readChartTheme();
     const visible = model.runs.filter((r) => !model.hidden.has(r.summary.strategy));
     const rows = visible.map((r) => comparisonRow(r.summary, r.colorIndex));
@@ -121,9 +125,12 @@ export class ResultsView {
       ${this.detailHtml(model)}
     `;
 
-    this.root.querySelectorAll<HTMLButtonElement>('[data-toggle]').forEach((button) =>
-      button.addEventListener('click', () => this.handlers.toggle(button.dataset.toggle!)),
-    );
+    const runsByName = new Map(model.runs.map((r) => [r.summary.strategy, r]));
+    this.root.querySelectorAll<HTMLButtonElement>('[data-toggle]').forEach((button) => {
+      const strategy = button.dataset.toggle!;
+      button.addEventListener('click', () => this.handlers.toggle(strategy));
+      this.tip!.attach(button, strategyTip(runsByName.get(strategy)!.summary));
+    });
     this.root.querySelectorAll<HTMLElement>('[data-detail-row]').forEach((row) =>
       row.addEventListener('click', () => this.handlers.selectDetail(row.dataset.detailRow!)),
     );
@@ -154,6 +161,8 @@ export class ResultsView {
 
   dispose() {
     this.charts.dispose();
+    this.tip?.dispose();
+    this.tip = undefined;
   }
 
   private detailHtml(model: ResultsModel): string {
@@ -230,6 +239,20 @@ function chip(run: LoadedRun, hidden: Set<string>): string {
   const pressed = !hidden.has(run.summary.strategy);
   return `<button type="button" class="chip" data-toggle="${name}" aria-pressed="${pressed}">
       ${swatch(run.colorIndex)}${name}</button>`;
+}
+
+// 칩 설명: 엔진이 summary.csv에 기록한 전략 설명(StrategyInfo::description)과 적용된 파라미터.
+function strategyTip(s: RunSummary): string {
+  // 설명은 '이름: 방식' 형식이다.
+  const colon = s.description.indexOf(': ');
+  const title = colon > 0 ? s.description.slice(0, colon) : '';
+  const body = colon > 0 ? s.description.slice(colon + 2) : s.description;
+  const params = [...s.strategyParams]
+    .map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`)
+    .join(' ');
+  return `<div class="hover-tip-title">${escapeHtml(s.strategy)}${title ? ` · ${escapeHtml(title)}` : ''}</div>
+    <p>${body ? escapeHtml(body) : '설명 없음: 설명을 기록하기 전의 엔진이 만든 결과다. lb_simulator로 다시 실행하면 나타난다.'}</p>
+    ${params ? `<p class="hover-tip-params">파라미터 ${params}</p>` : ''}`;
 }
 
 function comparisonTable(rows: ComparisonRow[], current: string | undefined): string {

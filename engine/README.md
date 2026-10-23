@@ -65,6 +65,7 @@ lb_simulator events=data/burst.csv servers=8x700 strategy=round_robin,power_of_t
 
 | 지표 | 의미 |
 | --- | --- |
+| `strategy`, `strategy_description`, `strategy_param.*` | 전략 이름, 설명(`StrategyInfo::description`), 전략 파라미터와 적용된 값 |
 | `connects`, `accepted`, `rejected`, `violations`, `rejected_total`, `rejection_rate` | 요청 처리 결과 |
 | `utilization_mean` | 서버 평균 이용률(사용량/크기)의 시간 가중 평균 |
 | `utilization_variance_mean` | 서버 간 이용률 분산의 시간 가중 평균. 순간적인 불균형 |
