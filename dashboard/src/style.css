@@ -490,6 +490,35 @@ table.compare td.best {
   font-weight: 700;
 }
 
+table.compare thead th.group {
+  padding-bottom: 2px;
+  border-bottom: none;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+table.compare thead th.group + th.group,
+table.compare thead th[rowspan] + th.group {
+  border-left: 1px solid var(--grid);
+}
+
+table.compare thead th[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 3px;
+}
+
+.table-tall {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.table-tall thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+}
+
 .table-note {
   margin: 8px 0 0;
   color: var(--text-muted);

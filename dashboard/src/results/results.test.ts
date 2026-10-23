@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
 import { CsvFormatError, parseCsv } from '../csv';
-import { activeRangeEnd, bestValue, comparisonRow, utilizationHeatmap } from './analyze';
-import { metric, parseAssignments, parseServers, parseSummary, parseTimeline, parseViolations } from './parse';
+import {
+  activeRangeEnd,
+  bestValue,
+  comparisonRow,
+  utilizationHeatmap,
+  weightClassLabel,
+  windowedRejectionRate,
+} from './analyze';
+import {
+  REJECT_REASONS,
+  metric,
+  parseAssignments,
+  parseServers,
+  parseSummary,
+  parseTimeline,
+  parseViolations,
+  parseWeightClasses,
+} from './parse';
 import { groupRuns, runsFromFiles } from './source';
 
 // lb_simulator 출력 형식을 줄인 예
@@ -136,6 +152,78 @@ describe('analysis', () => {
       TIMELINE.replace(/300,0,0.*\n$/, '300,1,0.1,0,0,3,1,0,0.1,0\n1000,0,0,0,0,3,1,0,0,0\n'),
     );
     expect(activeRangeEnd(long)).toBe(300);
+  });
+});
+
+describe('balance, rejection and cost metrics', () => {
+  // 균형 지수와 누적 연결 수 열이 있는 현재 형식
+  const NEW_TIMELINE = `time,active_sessions,total_load,utilization_mean,utilization_variance,imbalance,cv,jain,connects,accepted,rejected,violations,load_0
+0,0,0,0,0,1,0,1,0,0,0,0,0
+100,5,5,0.5,0,1.5,0.4,0.9,10,10,0,0,5
+200,5,5,0.5,0,2,0.6,0.8,30,25,4,1,5
+300,0,0,0,0,1,0,1,40,25,14,1,0
+`;
+
+  it('reads the new timeline columns', () => {
+    const t = parseTimeline(NEW_TIMELINE);
+    expect([...t.imbalance!]).toEqual([1, 1.5, 2, 1]);
+    expect([...t.jain!]).toEqual([1, 0.9, 0.8, 1]);
+    expect([...t.connects!]).toEqual([0, 10, 30, 40]);
+  });
+
+  it('leaves the new columns undefined for older results', () => {
+    const t = parseTimeline(TIMELINE);
+    expect(t.imbalance).toBeUndefined();
+    expect(t.connects).toBeUndefined();
+    expect(windowedRejectionRate(t)).toBeUndefined();
+    const s = parseServers(SERVERS);
+    expect(s.hotTimeFraction).toBeUndefined();
+  });
+
+  it('computes the rejection rate per window', () => {
+    const t = parseTimeline(NEW_TIMELINE);
+    // 스냅샷 하나씩: 10건 중 0, 20건 중 5, 10건 중 10
+    expect(windowedRejectionRate(t, 3)).toEqual([
+      [100, 0],
+      [200, 0.25],
+      [300, 1],
+    ]);
+    // 두 구간으로 묶으면 첫 구간은 30건 중 5
+    expect(windowedRejectionRate(t, 2)).toEqual([
+      [200, 5 / 30],
+      [300, 1],
+    ]);
+  });
+
+  it('reads reject reasons and decision cost', () => {
+    const a = parseAssignments(
+      'session_id,time,weight,server,outcome,reject_reason,select_ns,queries,servers_inspected\n' +
+        '1,5,1,0,accepted,,100,4,4\n2,6,2,-1,rejected,fragmentation,0,8,4\n3,7,1,-1,rejected,avoidable,0,2,2\n',
+    );
+    expect([...a.rejectReason!].map((i) => REJECT_REASONS[i])).toEqual(['', 'fragmentation', 'avoidable']);
+    expect([...a.serversInspected!]).toEqual([4, 4, 2]);
+    expect(() =>
+      parseAssignments('session_id,time,weight,server,outcome,reject_reason,select_ns\n1,5,1,-1,rejected,bogus,0\n'),
+    ).toThrow(/reject_reason/);
+  });
+
+  it('reads weight classes and labels them', () => {
+    const w = parseWeightClasses(
+      'weight_min,weight_max,requests,accepted,rejected,violations,rejection_rate,requested_weight,rejected_weight\n' +
+        '1,1,100,100,0,0,0,100,0\n16,31,20,18,2,0,0.1,320,32\n',
+    );
+    expect(w.map((c) => weightClassLabel(c.weightMin, c.weightMax))).toEqual(['1', '16–31']);
+    expect(w[1].rejectionRate).toBe(0.1);
+  });
+
+  it('reads the new summary metrics into comparison rows', () => {
+    const s = parseSummary(SUMMARY + 'imbalance_mean,1.25\njain_mean,0.95\nrejected_fragmentation,3\ndecision_servers_mean,2\n');
+    const row = comparisonRow(s, 0);
+    expect(row.imbalanceMean).toBe(1.25);
+    expect(row.jainMean).toBe(0.95);
+    expect(row.rejectedFragmentation).toBe(3);
+    expect(row.decisionServersMean).toBe(2);
+    expect(row.cvMean).toBeNaN(); // 없는 지표
   });
 });
 

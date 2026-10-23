@@ -78,4 +78,9 @@ export class CsvTable {
   column(name: string): Float64Array {
     return Float64Array.from(this.rows, (_, i) => this.number(i, name));
   }
+
+  // 이전 버전 출력에는 없을 수 있는 열. 없으면 undefined.
+  optionalColumn(name: string): Float64Array | undefined {
+    return this.has(name) ? this.column(name) : undefined;
+  }
 }

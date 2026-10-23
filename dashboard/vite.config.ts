@@ -12,7 +12,14 @@ const resultsDir = path.resolve(
   process.env.LB_RESULTS_DIR ?? fileURLToPath(new URL('../results', import.meta.url)),
 );
 
-const RESULT_FILES = new Set(['summary.csv', 'servers.csv', 'timeline.csv', 'assignments.csv', 'violations.csv']);
+const RESULT_FILES = new Set([
+  'summary.csv',
+  'servers.csv',
+  'timeline.csv',
+  'assignments.csv',
+  'violations.csv',
+  'weight_classes.csv',
+]);
 
 type Handler = (url: URL, res: ServerResponse) => Promise<void>;
 

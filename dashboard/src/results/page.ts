@@ -6,6 +6,7 @@ import {
   parseSummary,
   parseTimeline,
   parseViolations,
+  parseWeightClasses,
   type ResultFile,
 } from './parse';
 import { fetchServerRuns, groupRuns, runsFromFiles, type ResultGroup, type ResultRun } from './source';
@@ -178,11 +179,13 @@ export class ResultsPage implements Page {
 
     const settled = await Promise.allSettled(
       group.runs.map(async (run, colorIndex): Promise<LoadedRun> => {
-        const [summary, timeline] = await Promise.all([
+        const [summary, timeline, weightClasses] = await Promise.all([
           this.load(run, 'summary.csv', parseSummary),
           this.load(run, 'timeline.csv', parseTimeline),
+          // 가중치 구간 지표를 쓰기 전의 결과에는 이 파일이 없다
+          this.load(run, 'weight_classes.csv', parseWeightClasses).catch(() => undefined),
         ]);
-        return { run, colorIndex, summary, timeline };
+        return { run, colorIndex, summary, timeline, weightClasses };
       }),
     );
     if (token !== this.loadToken) return;
