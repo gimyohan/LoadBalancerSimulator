@@ -227,6 +227,95 @@ void rejectsBadInput() {
     Params bad;
     bad.set("choices", "0");
     CHECK(throws([&] { create("power_of_two", bad); }));
+    CHECK(throws([&] { runSimulation(busyEvents(), {10}, *strategy, {0, 1000, 0.0}); }));
+}
+
+void balanceIndexes() {
+    // 서버 둘(크기 10), 가중치 5 세션이 서버 0에만 있다: u = (0.5, 0)
+    auto strategy = create("first_fit");
+    const SimulationResult r = runSimulation(makeEvents({{0, 100, 5}}), {10, 10}, *strategy, {50, 1000, 0.9});
+    CHECK(near(r.imbalance.mean, 2.0));  // 0.5 / 0.25
+    CHECK(near(r.cv.mean, 1.0));         // 0.25 / 0.25
+    CHECK(near(r.jain.mean, 0.5));       // 0.5² / (2 · 0.25)
+    CHECK(near(r.imbalance.p99, 2.0));
+    CHECK(near(r.timeline[1].balance.imbalance, 2.0));  // t=50
+    CHECK(near(r.timeline.back().balance.jain, 1.0));   // 부하가 없으면 완전 균형으로 본다
+
+    // 고르게 나누면 완전 균형. 단 처음 1ms(부하 5)는 한 서버에만 있고, 이후 99ms(부하 10)는 고르다.
+    // 부하 × 시간 가중: imbalance = (2·5 + 1·990) / 995, jain = (0.5·5 + 1·990) / 995
+    auto rr = create("round_robin");
+    const SimulationResult even = runSimulation(makeEvents({{0, 100, 5}, {1, 100, 5}}), {10, 10}, *rr);
+    CHECK(near(even.imbalance.mean, 1000.0 / 995.0));
+    CHECK(near(even.jain.mean, 992.5 / 995.0));
+    CHECK(near(even.imbalance.p95, 1.0));  // 가중치의 99.5%가 균형 구간이다
+}
+
+void rejectReasons() {
+    // 용량 부족: 크기 2 서버 하나에 세 세션이 겹친다
+    auto first = create("first_fit");
+    const SimulationResult capacity = runSimulation(makeEvents({{0, 100, 1}, {1, 100, 1}, {2, 100, 1}}), {2}, *first);
+    CHECK(capacity.rejected_capacity == 1);
+    CHECK(capacity.assignments[2].reject_reason == RejectReason::Capacity);
+
+    // 단편화: 라운드 로빈이 크기 2 서버 둘에 하나씩 넣으면 전체 남은 2로도 가중치 2를 못 받는다
+    auto rr = create("round_robin");
+    const SimulationResult fragmented =
+        runSimulation(makeEvents({{0, 100, 1}, {1, 100, 1}, {2, 100, 2}}), {2, 2}, *rr);
+    CHECK(fragmented.rejected_fragmentation == 1);
+    CHECK(fragmented.rejected_capacity == 0);
+    CHECK(fragmented.requested_weight == 4);
+    CHECK(fragmented.rejected_weight == 2);
+    CHECK(near(fragmented.weightedRejectionRate(), 0.5));
+    CHECK(fragmented.weight_classes.size() == 2);
+    CHECK(fragmented.weight_classes[0].weight_min == 1 && fragmented.weight_classes[0].requests == 2);
+    CHECK(fragmented.weight_classes[1].weight_min == 2 && fragmented.weight_classes[1].weight_max == 3);
+    CHECK(fragmented.weight_classes[1].rejected == 1);
+
+    // 회피 가능: 빈 서버가 있는데 전략이 거절한다
+    FixedStrategy refuse(std::nullopt);
+    const SimulationResult avoidable = runSimulation(makeEvents({{0, 100, 1}}), {5}, refuse);
+    CHECK(avoidable.rejected_avoidable == 1);
+    CHECK(avoidable.assignments[0].reject_reason == RejectReason::Avoidable);
+}
+
+void serverSaturation() {
+    // 크기 2 서버 하나: 0~100ms 꽉 참(이용률 1), 150~200ms 이용률 0.5
+    auto strategy = create("first_fit");
+    const SimulationResult r = runSimulation(makeEvents({{0, 100, 2}, {150, 200, 1}}), {2}, *strategy);
+    CHECK(r.servers[0].full_time == 100);
+    CHECK(r.servers[0].hot_time == 100);
+    CHECK(near(r.full_time_fraction, 0.5));
+    CHECK(r.servers[0].peak_sessions == 1);
+    CHECK(r.servers[0].accepted_weight == 3);
+
+    // 크기가 다른 서버: 몫은 각각 합이 1
+    auto least = create("least_load");
+    const SimulationResult shares = runSimulation(busyEvents(), {20, 20, 40}, *least);
+    double load_sum = 0, capacity_sum = 0;
+    for (const ServerStats& s : shares.servers) {
+        load_sum += s.load_share;
+        capacity_sum += s.capacity_share;
+    }
+    CHECK(near(load_sum, 1.0));
+    CHECK(near(capacity_sum, 1.0));
+    CHECK(near(shares.servers[2].capacity_share, 0.5));
+}
+
+void decisionCost() {
+    const auto events = makeEvents({{0, 100, 1}});
+    auto first = create("first_fit");  // 빈 서버 0에서 멈춘다
+    CHECK(runSimulation(events, {5, 5, 5, 5}, *first).assignments[0].servers_inspected == 1);
+    auto least = create("least_load");  // 모든 서버를 본다
+    const SimulationResult all = runSimulation(events, {5, 5, 5, 5}, *least);
+    CHECK(all.assignments[0].servers_inspected == 4);
+    CHECK(all.assignments[0].queries >= 4);
+    CHECK(near(all.servers_inspected.mean, 4.0));
+    auto p2c = create("power_of_two");  // 후보 2개만 본다
+    const SimulationResult sampled = runSimulation(busyEvents(), {20, 20, 20, 20, 20, 20}, *p2c);
+    CHECK(sampled.servers_inspected.max <= 2);
+    // 엔진의 위반 확인이나 거절 원인 판정은 전략의 조회 수에 들어가지 않는다
+    FixedStrategy refuse(std::nullopt);
+    CHECK(runSimulation(events, {5, 5}, refuse).assignments[0].queries == 0);
 }
 
 }  // namespace
@@ -244,6 +333,10 @@ int main() {
         {"timingIsRecorded", timingIsRecorded},
         {"seededStrategiesAreReproducible", seededStrategiesAreReproducible},
         {"rejectsBadInput", rejectsBadInput},
+        {"balanceIndexes", balanceIndexes},
+        {"rejectReasons", rejectReasons},
+        {"serverSaturation", serverSaturation},
+        {"decisionCost", decisionCost},
     };
     for (const auto& [name, test] : tests) {
         const int before = g_failures;

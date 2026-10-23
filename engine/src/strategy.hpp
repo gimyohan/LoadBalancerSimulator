@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -21,25 +22,62 @@ struct ServerState {
 
 // 전략이 서버 현황을 조회하는 읽기 전용 창. 엔진의 서버 상태를 그대로 비추므로
 // 할당과 해제가 일어나면 바로 반영된다. 전략은 상태를 바꿀 수 없다.
+//
+// 결정 비용을 시계와 무관하게 재기 위해, 서버 하나에 대한 조회(capacity, load, fits 등
+// 한 번의 호출)마다 조회 수를 세고 결정 동안 처음 본 서버 수를 따로 센다.
+// servers()는 모든 서버를 한 번씩 조회한 것으로 센다.
 class ClusterView {
 public:
-    explicit ClusterView(const std::vector<ServerState>& servers) : servers_(servers) {}
+    explicit ClusterView(const std::vector<ServerState>& servers)
+        : servers_(servers), seen_(servers.size(), 0) {}
 
     std::size_t serverCount() const { return servers_.size(); }
-    const ServerState& server(ServerId id) const { return servers_[id]; }
-    std::span<const ServerState> servers() const { return servers_; }
-
-    Weight capacity(ServerId id) const { return servers_[id].capacity; }
-    Weight load(ServerId id) const { return servers_[id].load; }
-    std::int64_t sessionCount(ServerId id) const { return servers_[id].sessions; }
-    Weight remaining(ServerId id) const { return capacity(id) - load(id); }
-    bool fits(ServerId id, Weight weight) const { return remaining(id) >= weight; }
-    double utilization(ServerId id) const {
-        return static_cast<double>(load(id)) / static_cast<double>(capacity(id));
+    const ServerState& server(ServerId id) const { return touch(id); }
+    std::span<const ServerState> servers() const {
+        for (ServerId id = 0; id < servers_.size(); ++id) touch(id);
+        return servers_;
     }
 
+    Weight capacity(ServerId id) const { return touch(id).capacity; }
+    Weight load(ServerId id) const { return touch(id).load; }
+    std::int64_t sessionCount(ServerId id) const { return touch(id).sessions; }
+    Weight remaining(ServerId id) const {
+        const ServerState& s = touch(id);
+        return s.capacity - s.load;
+    }
+    bool fits(ServerId id, Weight weight) const { return remaining(id) >= weight; }
+    double utilization(ServerId id) const {
+        const ServerState& s = touch(id);
+        return static_cast<double>(s.load) / static_cast<double>(s.capacity);
+    }
+
+    // 엔진용: 결정 하나의 조회 집계를 새로 시작하고 읽는다.
+    void beginDecision() {
+        queries_ = 0;
+        inspected_ = 0;
+        if (++epoch_ == 0) {  // 한 바퀴 돌면 표시를 지운다
+            std::fill(seen_.begin(), seen_.end(), 0);
+            epoch_ = 1;
+        }
+    }
+    std::int64_t queries() const { return queries_; }
+    std::int64_t serversInspected() const { return inspected_; }
+
 private:
+    const ServerState& touch(ServerId id) const {
+        ++queries_;
+        if (seen_[id] != epoch_) {
+            seen_[id] = epoch_;
+            ++inspected_;
+        }
+        return servers_[id];
+    }
+
     const std::vector<ServerState>& servers_;
+    mutable std::vector<std::uint32_t> seen_;
+    mutable std::int64_t queries_ = 0;
+    mutable std::int64_t inspected_ = 0;
+    std::uint32_t epoch_ = 1;
 };
 
 struct ConnectRequest {

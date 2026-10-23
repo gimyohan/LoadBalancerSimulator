@@ -28,6 +28,7 @@ const std::vector<ParamInfo> kCommonParams = {
     {"output", "results/<events 파일 이름>", "결과 디렉터리. 전략마다 하위 디렉터리를 만든다"},
     {"sample_interval", "0", "사용량 스냅샷 간격(ms). 0이면 samples에 맞춰 자동"},
     {"samples", "1000", "sample_interval이 0일 때 스냅샷 수"},
+    {"hot_threshold", "0.9", "서버를 '포화에 가깝다'고 볼 이용률 (0~1]"},
 };
 
 void printUsage(std::ostream& out) {
@@ -106,7 +107,8 @@ int run(int argc, char** argv) {
     const std::vector<Weight> capacities = parseServerSpec(servers_spec);
     const std::filesystem::path output =
         params.getString("output", "results/" + std::filesystem::path(events_file).stem().string());
-    const SimulationOptions options{params.getInt("sample_interval", 0), params.getInt("samples", 1000)};
+    const SimulationOptions options{params.getInt("sample_interval", 0), params.getInt("samples", 1000),
+                                    params.getDouble("hot_threshold", 0.9)};
 
     // 실행 전에 모든 전략을 만들어 파라미터 오타를 먼저 잡는다.
     std::vector<std::pair<std::string, std::unique_ptr<Strategy>>> strategies;

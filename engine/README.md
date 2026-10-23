@@ -31,6 +31,7 @@ lb_simulator events=data/burst.csv servers=8x700 strategy=round_robin,power_of_t
 | `output` | `results/<events 파일 이름>` | 결과 디렉터리. 전략마다 하위 디렉터리를 만든다 |
 | `sample_interval` | 0 | 사용량 스냅샷 간격(ms). 0이면 `samples`에 맞춰 자동 |
 | `samples` | 1000 | 자동 간격일 때 스냅샷 수 |
+| `hot_threshold` | 0.9 | 서버를 '포화에 가깝다'고 볼 이용률. 서버별 포화 시간에 쓴다 |
 
 전략 파라미터(`seed`, `choices` 등)도 같은 `key=value`로 넘기고, 지정한 모든 전략에 적용된다.
 `--config FILE`, 읽지 않는 키를 오타로 보고 오류를 내는 동작은 생성기와 같다.
@@ -48,18 +49,26 @@ lb_simulator events=data/burst.csv servers=8x700 strategy=round_robin,power_of_t
 - 범위를 벗어난 서버 ID나 남은 용량이 세션 가중치보다 작은 서버를 고르면 **위반**이다.
   엔진은 할당하지 않고 거절과 같이 처리하며, `violations.csv`에 내역을 남긴다.
 - 거절률은 `(거절 + 위반) / 연결 요청 수`다.
+- 전략이 거절하면 그 순간의 클러스터 상태로 원인을 나눈다.
+
+| 거절 원인 | 조건 | 의미 |
+| --- | --- | --- |
+| `capacity` | 전체 남은 용량 < 세션 가중치 | 어떤 전략도 받을 수 없었다 |
+| `fragmentation` | 전체 남은 용량은 충분하지만 들어갈 서버가 없다 | 세션을 옮겼다면 받을 수 있었다 |
+| `avoidable` | 들어갈 서버가 있었는데 전략이 거절했다 | 전략 탓 (예: power_of_two의 후보가 모두 찼다) |
 
 ## 결과 파일
 
-`results/<데이터셋>/<전략>/` 아래에 다섯 파일을 쓴다.
+`results/<데이터셋>/<전략>/` 아래에 여섯 파일을 쓴다.
 
 | 파일 | 내용 |
 | --- | --- |
 | `summary.csv` | `metric,value`. 아래 지표와 실행 설정(`param.*`) |
-| `servers.csv` | 서버별 크기, 수락 세션 수, 최대/평균 사용량, 최대/평균 이용률 |
-| `timeline.csv` | 시각별 스냅샷: 활성 세션 수, 총 사용량, 이용률 평균·분산, 누적 수락/거절/위반, 서버별 사용량(`load_<id>`) |
-| `assignments.csv` | 연결 요청별 서버, 결과(`accepted`/`rejected`/`violation`), 선택 소요 시간(ns) |
+| `servers.csv` | 서버별 크기, 수락 세션 수·가중치, 최대/평균 사용량과 이용률, 최대 동시 세션 수, `hot_threshold` 이상·꽉 찬 시간(ms와 비율), 사용량 몫·용량 몫 |
+| `timeline.csv` | 시각별 스냅샷: 활성 세션 수, 총 사용량, 이용률 평균·분산, 균형 지수(`imbalance`, `cv`, `jain`), 누적 연결/수락/거절/위반, 서버별 사용량(`load_<id>`) |
+| `assignments.csv` | 연결 요청별 서버, 결과(`accepted`/`rejected`/`violation`), 거절 원인, 선택 소요 시간(ns), 조회 수, 살펴본 서버 수 |
 | `violations.csv` | 위반 요청의 세션, 시각, 가중치, 고른 서버, 그 서버의 남은 용량, 사유 |
+| `weight_classes.csv` | 가중치 구간(1, 2–3, 4–7, ...)별 요청·수락·거절·위반 수와 거절률 |
 
 ### summary.csv 지표
 
@@ -67,12 +76,27 @@ lb_simulator events=data/burst.csv servers=8x700 strategy=round_robin,power_of_t
 | --- | --- |
 | `strategy`, `strategy_description`, `strategy_param.*` | 전략 이름, 설명(`StrategyInfo::description`), 전략 파라미터와 적용된 값 |
 | `connects`, `accepted`, `rejected`, `violations`, `rejected_total`, `rejection_rate` | 요청 처리 결과 |
+| `rejected_capacity`, `rejected_fragmentation`, `rejected_avoidable` | 거절 원인별 수 (위 표) |
+| `requested_weight`, `rejected_weight`, `weighted_rejection_rate` | 가중치 기준 거절률. 요청 수 거절률보다 크면 큰 세션이 더 자주 밀려난다 |
 | `utilization_mean` | 서버 평균 이용률(사용량/크기)의 시간 가중 평균 |
 | `utilization_variance_mean` | 서버 간 이용률 분산의 시간 가중 평균. 순간적인 불균형 |
 | `server_utilization_variance` | 서버별 평균 이용률의 분산. 장기적인 불균형 |
 | `peak_total_load` | 전체 사용량의 최댓값 |
+| `imbalance_{mean,p95,p99}` | 최대/평균 이용률(과잉 확보 계수). 1이 완전 균형 |
+| `cv_{mean,p95,p99}` | 이용률 변동계수(표준편차/평균). 0이 완전 균형 |
+| `jain_{mean,p05,p01}` | Jain 공정성 지수 (Σu)²/(n·Σu²). 1이 완전 균형이고 낮을수록 나쁘므로 아래쪽 분위수를 쓴다 |
+| `hot_threshold`, `hot_time_fraction`, `full_time_fraction` | 서버들이 `hot_threshold` 이상·꽉 찬 상태였던 시간 비율 (서버 × 시간 평균) |
 | `select_ns_{mean,min,p50,p95,p99,max,total}` | 서버 선택 소요 시간 |
 | `timer_resolution_ns`, `timer_overhead_ns` | 시간 측정 환경 (아래 참고) |
+| `decision_queries_{mean,p99,max}` | 결정 하나에서 `ClusterView`를 조회한 횟수 |
+| `decision_servers_{mean,p99,max}` | 결정 하나에서 살펴본 서로 다른 서버 수. 시계와 무관한 결정 비용 |
+
+균형 지수(`imbalance`, `cv`, `jain`)의 평균과 분위수는 **그 순간의 총 사용량 × 지속 시간**으로 가중한다.
+세션이 몇 개뿐인 한산한 순간에는 최대/평균이 서버 수만큼 커지는데, 이런 순간이 결과를 좌우하지 않게 하려는 것이다.
+부하가 전혀 없는 순간은 완전 균형(1, 0, 1)으로 보고 가중치는 0이다.
+
+결정 비용은 전략이 `ClusterView`를 통해 서버를 조회할 때마다 센다. 엔진이 위반을 확인하거나 거절 원인을
+판정하려고 서버를 보는 것은 세지 않는다.
 
 시간 가중 평균은 첫 이벤트부터 마지막 이벤트까지 구간에서 계산한다. 이벤트 사이에는 상태가 변하지 않으므로
 구간 길이로 가중하면 정확한 적분이 된다.
