@@ -14,6 +14,9 @@ StrategyInfo leastLoadStrategy();
 StrategyInfo firstFitStrategy();
 StrategyInfo bestFitStrategy();
 StrategyInfo powerOfTwoStrategy();
+StrategyInfo powerOfFourStrategy();
+StrategyInfo powerOfEightStrategy();
+StrategyInfo feasiblePowerOfTwoStrategy();
 
 StrategyRegistry makeBuiltinStrategies();
 

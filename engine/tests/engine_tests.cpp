@@ -318,6 +318,56 @@ void decisionCost() {
     CHECK(runSimulation(events, {5, 5}, refuse).assignments[0].queries == 0);
 }
 
+void powerOfChoicesVariants() {
+    const std::vector<Weight> capacities{20, 20, 20, 20, 20, 20};
+    const auto events = busyEvents();
+
+    // power_of_four와 power_of_eight는 이름의 수만큼만 후보를 본다.
+    // choices를 받지 않으므로 넘기면 쓰지 않은 키로 남는다.
+    Params params;
+    params.set("choices", "2");
+    auto four = create("power_of_four", params);
+    CHECK(params.unusedKeys() == std::vector<std::string>{"choices"});
+    const SimulationResult r4 = runSimulation(events, capacities, *four);
+    CHECK(r4.servers_inspected.max <= 4);
+    Params params8;
+    params8.set("choices", "2");
+    auto eight = create("power_of_eight", params8);
+    CHECK(params8.unusedKeys() == std::vector<std::string>{"choices"});
+    const SimulationResult r8 = runSimulation(events, capacities, *eight);
+    CHECK(r8.servers_inspected.max <= 6);  // 후보 8개는 중복을 허용하므로 서버 6대를 넘지 않는다
+    auto two = create("power_of_two");
+    const SimulationResult r2 = runSimulation(events, capacities, *two);
+    // 후보가 많을수록 놓치는 자리가 적다
+    CHECK(r4.rejected_avoidable <= r2.rejected_avoidable);
+    CHECK(r8.rejected_avoidable <= r4.rejected_avoidable);
+
+    // 이름으로 고정한 power_of_n은 power_of_two에 choices를 준 것과 같은 결정을 내린다.
+    Params choices8;
+    choices8.set("choices", "8");
+    auto two8 = create("power_of_two", choices8);
+    const SimulationResult r2x8 = runSimulation(events, capacities, *two8);
+    CHECK(r2x8.assignments.size() == r8.assignments.size());
+    for (std::size_t i = 0; i < r8.assignments.size(); ++i) {
+        CHECK(r2x8.assignments[i].server == r8.assignments[i].server);
+    }
+
+    // feasible_power_of_two는 들어갈 서버가 있으면 거절하지 않고, 후보를 모으려고 모든 서버를 본다.
+    auto feasible = create("feasible_power_of_two");
+    const SimulationResult rf = runSimulation(events, capacities, *feasible);
+    CHECK(rf.rejected_avoidable == 0);
+    CHECK(rf.violations == 0);
+    CHECK(near(rf.servers_inspected.mean, 6.0));
+
+    // 들어갈 서버가 하나뿐이면 그 서버를 고른다: 크기 2, 9 서버에 가중치 5 세션
+    auto pick = create("feasible_power_of_two");
+    const SimulationResult single = runSimulation(makeEvents({{0, 100, 5}}), {2, 9}, *pick);
+    CHECK(single.assignments[0].outcome == Outcome::Accepted && single.assignments[0].server == 1);
+    // 들어갈 서버가 없으면 거절하고, 그 원인은 클러스터 상태로 정해진다
+    const SimulationResult none = runSimulation(makeEvents({{0, 100, 5}}), {2, 4}, *pick);
+    CHECK(none.rejected_fragmentation == 1);
+}
+
 }  // namespace
 
 int main() {
@@ -337,6 +387,7 @@ int main() {
         {"rejectReasons", rejectReasons},
         {"serverSaturation", serverSaturation},
         {"decisionCost", decisionCost},
+        {"powerOfChoicesVariants", powerOfChoicesVariants},
     };
     for (const auto& [name, test] : tests) {
         const int before = g_failures;

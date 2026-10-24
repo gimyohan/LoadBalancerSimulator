@@ -12,6 +12,9 @@ StrategyRegistry makeBuiltinStrategies() {
     registry.add(firstFitStrategy());
     registry.add(bestFitStrategy());
     registry.add(powerOfTwoStrategy());
+    registry.add(powerOfFourStrategy());
+    registry.add(powerOfEightStrategy());
+    registry.add(feasiblePowerOfTwoStrategy());
     return registry;
 }
 
