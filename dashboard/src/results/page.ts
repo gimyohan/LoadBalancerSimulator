@@ -72,7 +72,13 @@ export class ResultsPage implements Page {
     const [key, strategy] = route.split('/').map(decodeURIComponent);
     const target = key || this.activeKey || this.groups()[0]?.key;
     if (target && this.findGroup(target)) void this.show(target, strategy || undefined);
-    else this.showEmpty();
+    else if (key && key.startsWith('server:')) {
+      // 목록을 읽은 뒤 새로 만든 결과일 수 있으니 results/ 목록을 다시 읽는다.
+      void this.reloadList().then(() => {
+        if (this.findGroup(key)) void this.show(key, strategy || undefined);
+        else this.showEmpty();
+      });
+    } else this.showEmpty();
   }
 
   unmount() {
@@ -124,12 +130,15 @@ export class ResultsPage implements Page {
   }
 
   private async reload(route = '') {
-    this.serverGroups = groupRuns(await fetchServerRuns(), 'server');
+    await this.reloadList();
     this.cache = new WeakMap(); // 새로고침하면 결과 파일을 다시 읽는다
+    if (this.context) this.navigate(route);
+  }
+
+  private async reloadList() {
+    this.serverGroups = groupRuns(await fetchServerRuns(), 'server');
     this.listed = true;
-    if (!this.context) return;
-    this.renderSelect();
-    this.navigate(route);
+    if (this.context) this.renderSelect();
   }
 
   private addLocalFolder(files: Iterable<File>) {
