@@ -28,6 +28,9 @@ compile_commands.json
 /results/
 *.csv
 
+# ===== Data migration (외부 트레이스 변환 스크립트, 로컬 전용) =====
+/tools/migrate/
+
 # ===== Web dashboard =====
 node_modules/
 dist/
@@ -65,6 +68,8 @@ venv/
 .DS_Store
 Thumbs.db
 desktop.ini
+# Google Drive 동기화가 업로드 중에 만드는 임시 폴더
+.tmp.driveupload/
 
 # ===== Claude Code =====
 .claude/settings.local.json
