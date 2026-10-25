@@ -23,10 +23,13 @@ compile_commands.json
 *.idb
 
 # ===== Generated data / results =====
-# 데이터 생성기·시뮬레이션 엔진 산출물 (필요한 샘플은 git add -f 로 추가)
-/data/
+# 데이터 생성기·시뮬레이션 엔진 산출물
+# /data/ 대신 /data/*로 두어야 아래 예외가 동작한다 (무시된 디렉터리 안의 파일은 다시 포함할 수 없다).
+/data/*
 /results/
 *.csv
+# 예외: azure_vm_complete의 10% 표본 (14MB). 클론만으로 바로 실험할 수 있게 저장소에 둔다
+!/data/sample.csv
 
 # ===== Data migration (외부 트레이스 변환 스크립트, 로컬 전용) =====
 /tools/migrate/
